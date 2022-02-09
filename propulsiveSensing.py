@@ -6,6 +6,7 @@ also contains functions for calculating auxiliary parameters
 and visualizing the results.
 
 Changelog
+2022/02/08 - Defined zone class for rectangles and circles
 2022/02/05 - Imported code from 3DPropulsiveWalk
 
 Edmund Tang 2022/02/05
@@ -20,6 +21,54 @@ import plotly.graph_objs as go
 from scipy.optimize import curve_fit
 import pandas as pd
 from lmfit import Model
+
+class zone:
+    '''A zone defines the speed modifier for a region of a
+    simulation. A zone object checks if a position exists
+    within the boundaries it defines, and outputs a speed
+    modifier if it is true.
+    '''
+
+    def __init__(self, zoneType, parameters):
+        validZones = ['rectangle', 'circle'] # list of defined zones
+        try:
+            if zoneType in validZones:
+                self.zoneType = zoneType # parameters depend on the type
+                self.params = parameters # parameters are a list of values describing the zone
+            else:
+                print("Error: Unexpected zoneType.")
+        except:
+            print("Error: Invalid input for zone class.")
+
+    def check(self, pos): # determines the speed modifier for a valid position
+        # new zone types need to be defined here
+        # pos is the position, defined by a vector
+        spdMod = 'undefined'
+        if self.zoneType == 'rectangle':
+            try:
+                pos.pop(self.params[0]) # 0th param defines orientation of the rectangular prism
+                isContained = ((self.params[1] <= pos[0] <= self.params[2])
+                               & (self.params[3] <= pos[1] <= self.params[4]))
+                if isContained:
+                    spdMod = self.params[5]
+            except:
+                print("Error: Attempted to execute a zone with invalid parameters.")
+        elif self.zoneType == 'circle':
+            try:
+                pos.pop(self.params[0]) # 0th param defines orientation of the circular prism
+                isContained = ((pos[0] - self.params[1])**2 + (pos[1] - self.params[2])**2
+                               <= self.params[3]**2)
+                if isContained:
+                    spdMod = self.params[4]
+            except:
+                print("Error: Attempted to execute a zone with invalid parameters.")
+        else:
+            print("Error: Attempted to execute an invalid zone")
+        
+        return isContained, spdMod
+        
+
+        
 
 class RW_step:
     '''Iterator that yields positions and orientations in a
@@ -181,11 +230,6 @@ def calc_MSD(simID, cnx):
     print("Calculations complete!")
     return simID
 
-
-
-
-
-   
 def plotTrajectory3D(df, steps, mode = "position",
                      fileName = "rw3d_trailing_scatterplot.html",
                      xrange = [-20, 20], yrange = [-20, 20], zrange = [-20, 20]):
