@@ -6,12 +6,9 @@ also contains functions for calculating auxiliary parameters
 and visualizing the results.
 
 Changelog
-2021/04/18 - base version
-2021/04/24 - began work on 3d plotting function
-2021/04/26 - redid 3d plotting function for trajectories
-2021/04/30 - added regression function for 2d msd
+2022/02/05 - Imported code from 3DPropulsiveWalk
 
-Edmund Tang 2021/05/01
+Edmund Tang 2022/02/05
 '''
 
 import numpy as np

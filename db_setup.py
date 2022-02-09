@@ -1,7 +1,13 @@
 '''Set up the database for propulsive particles
 in 3D space
 
-Edmund Tang 2021-02-05'''
+Changelog
+2022/02/08 - Added tables for zones and concentrations
+2022/02/07 - Rewrote existing tables to not need entryID
+2022/02/05 - Imported code from 3DPropulsiveWalk
+
+Edmund Tang 2021-02-05
+'''
 
 import mysql.connector
 from mysql.connector import errorcode
@@ -22,14 +28,25 @@ TABLES['experiments'] = (
     "`xMax` INT,"
     "`yMax` INT,"
     "`zMax` INT,"
-    "`fieldType` STR NOT NULL,"
-    "`fieldParameters` STR,"    
     "PRIMARY KEY (`simID`)"
     ") ENGINE = InnoDB")
 
+TABLES['zones'] = (
+    "CREATE TABLE `zones` ("
+    "`simID` INT NOT NULL,"
+    "`zoneID` INT NOT NULL,"
+    "`shape` CHAR(12) NOT NULL,"
+    "`parameters` CHAR(16) NOT NULL,"
+    "`spdMod` FLOAT NOT NULL,"
+    "`area` FLOAT NOT NULL,"
+    "PRIMARY KEY (`simID`, `zoneID`),"
+    "FOREIGN KEY (`simID`)"
+    "   REFERENCES `experiments`(`simID`)"
+    "   ON UPDATE CASCADE ON DELETE CASCADE"
+    ") ENGINE=InnoDB")
+
 TABLES['trajectories'] = (
     "CREATE TABLE `trajectories` ("
-    "`entryID` INT AUTO_INCREMENT,"
     "`simID` INT NOT NULL,"
     "`obsNum` INT NOT NULL,"
     "`xpos` FLOAT NOT NULL,"
@@ -40,15 +57,23 @@ TABLES['trajectories'] = (
     "`zori` FLOAT NOT NULL,"
     "`theta` FLOAT,"
     "`psi` FLOAT,"
-    "PRIMARY KEY (`entryID`),"
+    "PRIMARY KEY (`simID`, `obsNum`),"
     "FOREIGN KEY (`simID`)"
     "   REFERENCES `experiments`(`simID`)"
     "   ON UPDATE CASCADE ON DELETE CASCADE"
     ") ENGINE=InnoDB")
 
-TABLES['zones'] = (
-    "CREATE TABLE `zones` ("
-    
+TABLES['concentrations'] = (
+    "CREATE TABLE `concentrations` ("
+    "`simID` INT NOT NULL,"
+    "`zoneID` INT NOT NULL,"
+    "`obsNum` INT NOT NULL,"
+    "`pCount` INT NOT NULL,"
+    "`pConc` FLOAT NOT NULL,"
+    "PRIMARY KEY (`simID`, `zoneID`, `obsNum`),"
+    "FOREIGN KEY (`simID`, `zoneID`)"
+    "   REFERENCES `zones` (`simID`, `zoneID`)"
+    "   ON UPDATE CASCADE ON DELETE CASCADE"
     ") ENGINE=InnoDB")
 
 # Connect to server
