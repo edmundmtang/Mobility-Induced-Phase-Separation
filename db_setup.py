@@ -2,6 +2,7 @@
 in 3D space
 
 Changelog
+2022/02/12 - Commented out concentrations - avoiding for now
 2022/02/08 - Added tables for zones and concentrations
 2022/02/07 - Rewrote existing tables to not need entryID
 2022/02/05 - Imported code from 3DPropulsiveWalk
@@ -11,6 +12,7 @@ Edmund Tang 2021-02-05
 
 import mysql.connector
 from mysql.connector import errorcode
+from db_login import *
 
 # Define tables
 TABLES = {}
@@ -23,10 +25,10 @@ TABLES['experiments'] = (
     "`stepsPerObservation` INT NOT NULL,"
     "`baseSpeed` FLOAT NOT NULL,"
     "`xMin` INT,"
-    "`yMin` INT,"
-    "`zMin` INT,"
     "`xMax` INT,"
+    "`yMin` INT,"
     "`yMax` INT,"
+    "`zMin` INT,"
     "`zMax` INT,"
     "PRIMARY KEY (`simID`)"
     ") ENGINE = InnoDB")
@@ -35,10 +37,10 @@ TABLES['zones'] = (
     "CREATE TABLE `zones` ("
     "`simID` INT NOT NULL,"
     "`zoneID` INT NOT NULL,"
-    "`shape` CHAR(12) NOT NULL,"
+    "`type` CHAR(12) NOT NULL,"
     "`parameters` CHAR(16) NOT NULL,"
     "`spdMod` FLOAT NOT NULL,"
-    "`area` FLOAT NOT NULL,"
+    "`area` FLOAT,"
     "PRIMARY KEY (`simID`, `zoneID`),"
     "FOREIGN KEY (`simID`)"
     "   REFERENCES `experiments`(`simID`)"
@@ -55,6 +57,7 @@ TABLES['trajectories'] = (
     "`xori` FLOAT NOT NULL,"
     "`yori` FLOAT NOT NULL,"
     "`zori` FLOAT NOT NULL,"
+    "`zoneID` INT,"
     "`theta` FLOAT,"
     "`psi` FLOAT,"
     "PRIMARY KEY (`simID`, `obsNum`),"
@@ -63,24 +66,24 @@ TABLES['trajectories'] = (
     "   ON UPDATE CASCADE ON DELETE CASCADE"
     ") ENGINE=InnoDB")
 
-TABLES['concentrations'] = (
-    "CREATE TABLE `concentrations` ("
-    "`simID` INT NOT NULL,"
-    "`zoneID` INT NOT NULL,"
-    "`obsNum` INT NOT NULL,"
-    "`pCount` INT NOT NULL,"
-    "`pConc` FLOAT NOT NULL,"
-    "PRIMARY KEY (`simID`, `zoneID`, `obsNum`),"
-    "FOREIGN KEY (`simID`, `zoneID`)"
-    "   REFERENCES `zones` (`simID`, `zoneID`)"
-    "   ON UPDATE CASCADE ON DELETE CASCADE"
-    ") ENGINE=InnoDB")
+##TABLES['concentrations'] = (
+##    "CREATE TABLE `concentrations` ("
+##    "`simID` INT NOT NULL,"
+##    "`zoneID` INT NOT NULL,"
+##    "`obsNum` INT NOT NULL,"
+##    "`pCount` INT NOT NULL,"
+##    "`pConc` FLOAT NOT NULL,"
+##    "PRIMARY KEY (`simID`, `zoneID`, `obsNum`),"
+##    "FOREIGN KEY (`simID`, `zoneID`)"
+##    "   REFERENCES `zones` (`simID`, `zoneID`)"
+##    "   ON UPDATE CASCADE ON DELETE CASCADE"
+##    ") ENGINE=InnoDB")
 
 # Connect to server
 cnx = mysql.connector.connect(
-    host = 'localhost',
-    user = 'root',
-    password = 'phylumSnack1738#'
+    host = host,
+    user = user,
+    password = password
     )
 cursor = cnx.cursor()
 
