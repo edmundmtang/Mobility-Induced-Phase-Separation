@@ -157,9 +157,9 @@ def RW_sim(simLen, stepsPerObs, dt, v0, fld, cnx):
 
     cursor = cnx.cursor() # get cursor from the mySQL connection
     # create experiment entry in database
-    ins_stmt = """INSERT INTO `experiments` (`simLen`,`stepsPerObservation`, `stepSize`, `baseSpeed`,`xMin`,`xMax`,`yMin`,`yMax`,`zMin`,`zMax`)
-                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
-    ins_data = [simLen, stepsPerObs, dt, v0]
+    ins_stmt = """INSERT INTO `experiments` (`simLen`,`stepsPerObservation`,`stepSize`,`baseSpeed`,`spdModDefault`,`xMin`,`xMax`,`yMin`,`yMax`,`zMin`,`zMax`)
+                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
+    ins_data = [simLen, stepsPerObs, dt, v0, fld.spdDefault]
     for i in fld.bounds:
         ins_data.append(i) # add bounds to insertion data
     cursor.execute(ins_stmt, ins_data)
@@ -181,6 +181,7 @@ def RW_sim(simLen, stepsPerObs, dt, v0, fld, cnx):
         zoneSpdMod = zone.params[-1] # spdMod, note that it's redundant in params
         zoneParams = delim.join(list(map(str,zone.params))) # convert params into str
         ins_data = [simID, zoneID, zone.zoneType, zoneParams, zoneSpdMod]
+        cursor.execute(ins_stmt, ins_data)
         zoneID += 1
         # list(map(int,paramsStr.split(","))) # read the parameters str and convert to list of ints
     # create first entry in trajectory table for this experiment
@@ -295,8 +296,38 @@ def calc_MSD(simID, cnx):
     print("Calculations complete!")
     return simID
 
+def readField(expNum, cnx):
+    '''Recreate a field object by reading it from the
+    SQL database. Does so for a specific experiment.'''
+    cursor = cnx.cursor() # get cursor from the mySQL connection
+    cursor.execute(f"""SELECT `spdModDefault`,`xMin`,`xMax`,`yMin`,`yMax`,`zMin`,`zMax` from `experiments` WHERE
+                    (`simID` = {expNum})""")
+    results = cursor.fetchone()
+    spdDefault = results[0]
+    bounds = results[1:7]
+    cursor.execute(f"""SELECT * FROM `zones` WHERE
+                    (`simID` = {expNum})""")
+    results = cursor.fetchall()
+    zones = []
+    for row in results:
+        zoneType = row[2]
+        parameters = row[3]
+        zones.append(zone(zoneType,parameters))       
+    tmp_field = field(bounds,spdDefault,zones)
+    return tmp_field
+    
+def plotTrajectory2D(df, field,
+                     steps, excludeDim = 2,
+                     filename = "scatter2D_animated.html",
+                     xrange = [-1, 1], yrange = [-1, 1], zrange = [-1, 1]):
+    '''Create an animated 2D plot of a set of trajectories
+    with lines indicating zones. Takes pandas data frame
+    and a field object as inputs.'''
+
+    return
+                     
 def plotTrajectory3D(df, steps, mode = "position",
-                     fileName = "rw3d_trailing_scatterplot.html",
+                     fileName = "trailing_scatterplot.html",
                      xrange = [-20, 20], yrange = [-20, 20], zrange = [-20, 20]):
     '''Create an animated 3D plot of a set of trajectories
     with trailing lines representing where each particle has

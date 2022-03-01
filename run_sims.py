@@ -18,6 +18,6 @@ z1 = ps.zone('rectangle',[2,-1,0,-1,1,0])
 z2 = ps.zone('rectangle',[2, 0,1,-1,1,1])
 fld = ps.field(bounds = [-1, 1,-1,1,0,0], zones = [z1,z2])
 # Run simulations
-for i in range(128):
+for i in range(3):
     ps.RW_sim(simLen,stepsPerObs,dt,v0,fld,cnx)
 cnx.close()
