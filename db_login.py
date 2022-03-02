@@ -2,5 +2,5 @@
 
 host = 'localhost'
 user = 'root'
-password = 'phylumSnack1738#'
-database = 'propulsiveSensing'
+password = ''
+database = ''

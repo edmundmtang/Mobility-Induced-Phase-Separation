@@ -405,23 +405,6 @@ def plotTrajectory2D(df, fld,
         "steps": []
     }
 
-    # make data (particles)
-    data_by_step = df[df["obsNum"] == 0]
-    for i, simID in zip(range(len(simIDs)), simIDs):
-        # generate each pair of traces by simulation ID
-        data_by_simID = df[df["Simulation ID"] == simID]
-        # trace for the marker
-        traceP = go.Scatter(x=[list(data_by_simID[r1])[0]],
-                            y=[list(data_by_simID[r2])[0]],
-                            mode = "markers",
-                            marker = dict(
-                                color = 'black',
-                                size = 4
-                                ), 
-                            name = "Particle {}".format(simID)
-                            )
-        # add traces to data
-        fig_dict["data"].append(traceP)
     # make data (zones)
     for i, zone in zip(range(len(fld.zones)), fld.zones):
         if zone.zoneType == 'rectangle':
@@ -446,28 +429,68 @@ def plotTrajectory2D(df, fld,
         fig_dict["data"].append(trace_z0)
         fig_dict["data"].append(trace_z1)
     # make data (bounds)
-    xList = [xmin, xmin, xmax, xmax, xmin]
-    yList = [ymin, ymax, ymax, ymin, ymin]
-    trace_B = go.Scatter(x=xList,
-                        y=yList,
-                        mode="lines",
-                        line_color="black"
-                        )
+    xBoundary = [xmin, xmin, xmax, xmax, xmin]
+    yBoundary = [ymin, ymax, ymax, ymin, ymin]
+    trace_B = go.Scatter(x=xBoundary,
+                         y=yBoundary,
+                         mode="lines",
+                         line_color="black",
+                         name = "Boundary"
+                         )
     fig_dict["data"].append(trace_B)
+    # make data (particles)
+    data_by_step = df[df["obsNum"] == 0]
+    traceP = go.Scatter(x=list(data_by_step[r1]),
+                        y=list(data_by_step[r2]),
+                        mode = "markers",
+                        marker = dict(
+                            color = 'black',
+                            size = 4
+                            ), 
+                        name = "Particle {}".format(simID)
+                        )
+    fig_dict["data"].append(traceP)
+
     # make frames
     frames = []
     for step in steps:
         frame_data = []
-        for simID in simIDs:
-            data_by_simID = df[df["Simulation ID"] == simID]
-            frame_mrkr_by_simID = dict(type = "scatter", # end marker
-                                       x=[list(data_by_simID[r1])[step]],
-                                       y=[list(data_by_simID[r2])[step]]
-                                       )
-            frame_data.append(frame_mrkr_by_simID)
+        # make frame for zones
+        for zone in fld.zones:
+            if zone.zoneType == 'rectangle':
+                p = zone.params[1:5]
+                xList1 = [p[0],p[0],p[1]]
+                yList1 = [p[2],p[3],p[3]]
+                xList2 = [p[0],p[1],p[1]]
+                yList2 = [p[2],p[2],p[3]]
+            frame_z0 = dict(type = "scatter",
+                            x=xList1,
+                            y=yList1
+                            )
+            frame_z1 = dict(type = "scatter",
+                            x=xList2,
+                            y=yList2
+                            )
+            frame_data.append(frame_z0)
+            frame_data.append(frame_z1)
+        # make frame for boundary
+        frame_B = dict(type = "scatter",
+                       x=xBoundary,
+                       y=yBoundary
+                       )
+        frame_data.append(frame_B)
+
+        # make frame for particles
+        data_by_step = df[df["obsNum"] == step]
+        frameP = dict(type = "scatter",
+                      x=list(data_by_step[r1]),
+                      y=list(data_by_step[r2]),
+                      )
+        frame_data.append(frameP)
+
         frame = dict(data= frame_data,
-                     traces = list(range(0,len(simIDs))),
-                     name = step)
+                     traces = list(range(0,len(simIDs)+len(fld.zones)+1)),
+                     name = step)        
         frames.append(frame)
                                
     fig_dict["frames"] = frames

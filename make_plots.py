@@ -35,7 +35,7 @@ df.rename(columns = {0:"Simulation ID", 1:"obsNum", 2:"rx", 3:"ry", 4:"rz"}, inp
 
 steps = [x for x in list(range(obsLimit+1)) if x % 2 == 0]
 
-fig = ps.plotTrajectory2D(df,fld,steps,excludeDim = 2, filename = "test.html",
-                          xrange=[-1.1,1.1],yrange=[-2,2])
+fig, fig_dict = ps.plotTrajectory2D(df,fld,steps,excludeDim = 2, filename = "test.html",
+                          xrange=[-1.05,1.05],yrange=[-1.05,1.05])
 
 cnx.close()
