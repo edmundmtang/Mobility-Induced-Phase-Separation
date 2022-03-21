@@ -6,6 +6,7 @@ also contains functions for calculating auxiliary parameters
 and visualizing the results.
 
 Changelog
+2022/03/02 - Finished adding readField(), plotTrajectory2D, and plotTrajectory3D
 2022/02/15 - Updated RW_step() and RW_sim() to utilize fields
 2022/02/09 - Added field class
 2022/02/08 - Defined zone class for rectangles and circles
