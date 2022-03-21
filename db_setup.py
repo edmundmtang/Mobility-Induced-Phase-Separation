@@ -24,6 +24,7 @@ TABLES['experiments'] = (
     "`stepSize` FLOAT NOT NULL,"
     "`stepsPerObservation` INT NOT NULL,"
     "`baseSpeed` FLOAT NOT NULL,"
+    "`spdModDefault` FLOAT DEFAULT 0,"
     "`xMin` INT,"
     "`xMax` INT,"
     "`yMin` INT,"

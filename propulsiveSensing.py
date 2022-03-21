@@ -35,7 +35,10 @@ class zone:
         try:
             if zoneType in validZones:
                 self.zoneType = zoneType # parameters depend on the type
-                self.params = parameters # parameters are a list of values describing the zone
+                if type(parameters) == list or type(parameters) == dict:
+                    self.params = parameters # parameters are a list of values describing the zone
+                else:
+                    print("Error: Parameters are not a list or dictionary.")
             else:
                 print("Error: Unexpected zoneType.")
         except:
@@ -157,9 +160,9 @@ def RW_sim(simLen, stepsPerObs, dt, v0, fld, cnx):
 
     cursor = cnx.cursor() # get cursor from the mySQL connection
     # create experiment entry in database
-    ins_stmt = """INSERT INTO `experiments` (`simLen`,`stepsPerObservation`, `stepSize`, `baseSpeed`,`xMin`,`xMax`,`yMin`,`yMax`,`zMin`,`zMax`)
-                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
-    ins_data = [simLen, stepsPerObs, dt, v0]
+    ins_stmt = """INSERT INTO `experiments` (`simLen`,`stepsPerObservation`,`stepSize`,`baseSpeed`,`spdModDefault`,`xMin`,`xMax`,`yMin`,`yMax`,`zMin`,`zMax`)
+                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
+    ins_data = [simLen, stepsPerObs, dt, v0, fld.spdDefault]
     for i in fld.bounds:
         ins_data.append(i) # add bounds to insertion data
     cursor.execute(ins_stmt, ins_data)
@@ -181,8 +184,8 @@ def RW_sim(simLen, stepsPerObs, dt, v0, fld, cnx):
         zoneSpdMod = zone.params[-1] # spdMod, note that it's redundant in params
         zoneParams = delim.join(list(map(str,zone.params))) # convert params into str
         ins_data = [simID, zoneID, zone.zoneType, zoneParams, zoneSpdMod]
+        cursor.execute(ins_stmt, ins_data)
         zoneID += 1
-        # list(map(int,paramsStr.split(","))) # read the parameters str and convert to list of ints
     # create first entry in trajectory table for this experiment
     ins_stmt = """INSERT INTO `trajectories` (`simID`, `obsNum`, `zoneID` , `xpos`, `xori`, `ypos`, `yori`, `zpos`, `zori`)
                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"""
@@ -295,8 +298,236 @@ def calc_MSD(simID, cnx):
     print("Calculations complete!")
     return simID
 
+def readField(expNum, cnx):
+    '''Recreate a field object by reading it from the
+    SQL database. Does so for a specific experiment.'''
+    cursor = cnx.cursor() # get cursor from the mySQL connection
+    cursor.execute(f"""SELECT `spdModDefault`,`xMin`,`xMax`,`yMin`,`yMax`,`zMin`,`zMax` from `experiments` WHERE
+                    (`simID` = {expNum})""")
+    results = cursor.fetchone()
+    spdDefault = results[0]
+    bounds = results[1:7]
+    cursor.execute(f"""SELECT * FROM `zones` WHERE
+                    (`simID` = {expNum})""")
+    results = cursor.fetchall()
+    zones = []
+    for row in results:
+        zoneType = row[2]
+        parameters = list(map(int,row[3].split(","))) # read the parameters str and convert to list of ints
+        zones.append(zone(zoneType,parameters))       
+    fld = field(bounds,spdDefault,zones)
+    return fld
+    
+def plotTrajectory2D(df, fld,
+                     steps, excludeDim = 2,
+                     filename = "scatter2D_animated.html",
+                     xrange = [-1, 1], yrange = [-1, 1]):
+    '''Create an animated 2D plot of a set of trajectories
+    with lines indicating zones. Takes pandas data frame
+    and a field object as inputs.'''
+
+    if excludeDim == 0:
+        r1 = "ry"; r2 = "rz"; xmin = fld.bounds[2]; xmax = fld.bounds[3]; ymin = fld.bounds[4]; ymax = fld.bounds[5]
+    elif excludeDim == 1:
+        r1 = "rx"; r2 = "rz"; xmin = fld.bounds[0]; xmax = fld.bounds[1]; ymin = fld.bounds[4]; ymax = fld.bounds[5]
+    elif excludeDim == 2:
+        r1 = "rx"; r2 = "ry"; xmin = fld.bounds[0]; xmax = fld.bounds[1]; ymin = fld.bounds[2]; ymax = fld.bounds[3]
+
+    # test that columns in df are properly named
+    columnNames = ["Simulation ID", "obsNum", r1, r2]
+    try:
+        for name in columnNames:
+            df[name]
+    except:
+        print(f"""ValueError: Could no find column. Expected one of {columnNames} in the data frame.""")
+        return
+    
+    simIDs = [] # build list of all unique simulation IDs
+    for simID in list(df["Simulation ID"]):
+        if simID not in simIDs:
+            simIDs.append(simID)
+
+    # make figure
+    fig_dict = {
+        "data": [],
+        "layout": {},
+        "frames": []
+    }
+
+    # fill in most of layout
+    fig_dict["layout"]["hovermode"] = "closest"
+    fig_dict["layout"]["width"] = 1300
+    fig_dict["layout"]["height"] = 900
+    fig_dict["layout"]["updatemenus"] = [
+        {
+            "buttons": [
+                {
+                    "args": [None, {"frame": {"duration": 0, "redraw": True},
+                                    "fromcurrent": True, "transition": {"duration": 5,
+                                                                        "easing": "quadratic-in-out"}}],
+                    "label": "Play",
+                    "method": "animate"
+                },
+                {
+                    "args": [[None], {"frame": {"duration": 0, "redraw": False},
+                                      "mode": "immediate",
+                                      "transition": {"duration": 0}}],
+                    "label": "Pause",
+                    "method": "animate"
+                }
+            ],
+            "direction": "left",
+            "pad": {"r": 10, "t": 87},
+            "showactive": True,
+            "type": "buttons",
+            "x": 0.1,
+            "xanchor": "right",
+            "y": 0,
+            "yanchor": "top"
+        }
+    ]
+
+    sliders_dict = {
+        "active": 0,
+        "yanchor": "top",
+        "xanchor": "left",
+        "currentvalue": {
+            "font": {"size": 20},
+            "prefix": "Step:",
+            "visible": True,
+            "xanchor": "right"
+        },
+        "transition": {"duration": 50, "easing": "cubic-in-out"},
+        "pad": {"b": 10, "t": 50},
+        "len": 0.9,
+        "x": 0.1,
+        "y": 0,
+        "steps": []
+    }
+
+    # make data (zones)
+    for i, zone in zip(range(len(fld.zones)), fld.zones):
+        if zone.zoneType == 'rectangle':
+            p = zone.params[1:5]
+            xList1 = [p[0],p[0],p[1]]
+            yList1 = [p[2],p[3],p[3]]
+            xList2 = [p[0],p[1],p[1]]
+            yList2 = [p[2],p[2],p[3]]
+        trace_z0 = go.Scatter(x=xList1,
+                            y=yList1,
+                            mode="lines",
+                            name = "Zone {}".format(i),
+                            line_color = px.colors.qualitative.Plotly[i % len(px.colors.qualitative.Plotly)]
+                            )
+        trace_z1 = go.Scatter(x=xList2,
+                            y=yList2,
+                            mode="lines",
+                            name = "Zone {}".format(i),
+                            fill='tonexty',
+                            line_color = px.colors.qualitative.Plotly[i % len(px.colors.qualitative.Plotly)]
+                            )
+        fig_dict["data"].append(trace_z0)
+        fig_dict["data"].append(trace_z1)
+    # make data (bounds)
+    xBoundary = [xmin, xmin, xmax, xmax, xmin]
+    yBoundary = [ymin, ymax, ymax, ymin, ymin]
+    trace_B = go.Scatter(x=xBoundary,
+                         y=yBoundary,
+                         mode="lines",
+                         line_color="black",
+                         name = "Boundary"
+                         )
+    fig_dict["data"].append(trace_B)
+    # make data (particles)
+    data_by_step = df[df["obsNum"] == 0]
+    traceP = go.Scatter(x=list(data_by_step[r1]),
+                        y=list(data_by_step[r2]),
+                        mode = "markers",
+                        marker = dict(
+                            color = 'black',
+                            size = 4
+                            ), 
+                        name = "Particle {}".format(simID)
+                        )
+    fig_dict["data"].append(traceP)
+
+    # make frames
+    frames = []
+    for step in steps:
+        frame_data = []
+        # make frame for zones
+        for zone in fld.zones:
+            if zone.zoneType == 'rectangle':
+                p = zone.params[1:5]
+                xList1 = [p[0],p[0],p[1]]
+                yList1 = [p[2],p[3],p[3]]
+                xList2 = [p[0],p[1],p[1]]
+                yList2 = [p[2],p[2],p[3]]
+            frame_z0 = dict(type = "scatter",
+                            x=xList1,
+                            y=yList1
+                            )
+            frame_z1 = dict(type = "scatter",
+                            x=xList2,
+                            y=yList2
+                            )
+            frame_data.append(frame_z0)
+            frame_data.append(frame_z1)
+        # make frame for boundary
+        frame_B = dict(type = "scatter",
+                       x=xBoundary,
+                       y=yBoundary
+                       )
+        frame_data.append(frame_B)
+
+        # make frame for particles
+        data_by_step = df[df["obsNum"] == step]
+        frameP = dict(type = "scatter",
+                      x=list(data_by_step[r1]),
+                      y=list(data_by_step[r2]),
+                      )
+        frame_data.append(frameP)
+
+        frame = dict(data = frame_data,
+                     traces = list(range(0,2+len(fld.zones)*2)),
+                     name = step)        
+        frames.append(frame)
+                               
+    fig_dict["frames"] = frames
+
+    # slider frames
+    for step in steps:  
+        slider_step = {"args": [
+            [step],
+            {"frame": {"duration": 50, "redraw": True},
+             "mode": "immediate",
+             "transition": {"duration": 50}}
+        ],
+            "label": step,
+            "method": "animate"}
+        sliders_dict["steps"].append(slider_step)
+
+
+    fig_dict["layout"]["sliders"] = [sliders_dict]
+
+    fig = go.Figure(fig_dict)
+
+    fig.update_xaxes(range=xrange,
+                     constrain="domain")
+    fig.update_yaxes(range=yrange,
+                     scaleanchor = "x",
+                     scaleratio = 1
+                     )
+    
+
+    fig.write_html(filename, auto_open=True)
+    print("Figure generated!")
+    print(f"Filename: {filename}")
+
+    return fig, fig_dict
+                     
 def plotTrajectory3D(df, steps, mode = "position",
-                     fileName = "rw3d_trailing_scatterplot.html",
+                     fileName = "trailing_scatterplot.html",
                      xrange = [-20, 20], yrange = [-20, 20], zrange = [-20, 20]):
     '''Create an animated 3D plot of a set of trajectories
     with trailing lines representing where each particle has
@@ -307,7 +538,7 @@ def plotTrajectory3D(df, steps, mode = "position",
         print("Error: Expected either 'position' or 'orientation' for mode.")
         return
 
-    # test that columns are properly named
+    # test that columns in df are properly named
     if mode.lower() == 'position':
         xstr = "rx"; ystr = "ry"; zstr = "rz"
     elif mode.lower() == 'orientation':
