@@ -488,8 +488,8 @@ def plotTrajectory2D(df, fld,
                       )
         frame_data.append(frameP)
 
-        frame = dict(data= frame_data,
-                     traces = list(range(0,len(simIDs)+len(fld.zones)+1)),
+        frame = dict(data = frame_data,
+                     traces = list(range(0,2+len(fld.zones)*2)),
                      name = step)        
         frames.append(frame)
                                
