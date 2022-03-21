@@ -128,5 +128,10 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# MySQL Login Credentials
+### MySQL Login Credentials ###
 db_login.py
+#'''login info for local mySQL database'''
+#host = 'localhost'
+#user = 'root'
+#password = ''
+#database = ''
